@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
   "crypto/x509"
   "encoding/asn1"
+	"encoding/hex"
   "encoding/pem"
   "time"
   "strings"
@@ -31,34 +33,52 @@ func main() {
 }
 
 const cert = `-----BEGIN CERTIFICATE-----
-MIIFEjCCA/qgAwIBAgIIRKunateSbHwwDQYJKoZIhvcNAQELBQAwcjEsMCoGA1UE
-AwwjQXBwbGUgQ29ycG9yYXRlIEF1dGhlbnRpY2F0aW9uIENBIDExIDAeBgNVBAsM
-F0NlcnRpZmljYXRpb24gQXV0aG9yaXR5MRMwEQYDVQQKDApBcHBsZSBJbmMuMQsw
-CQYDVQQGEwJVUzAeFw0yMzA5MDcyMTA5MTVaFw0yNDEwMDYyMTE5MTVaMIG1MSMw
-IQYKCZImiZPyLGQBGRYTQ2VydGlmaWNhdGUgTWFuYWdlcjETMBEGA1UECgwKQXBw
-bGUgSW5jLjFJMEcGA1UEAwxAWWhGQVJ2RnUvSkI4ZWxkdkF3emQvcE05bk9JMWFL
-RGttRjNWbHpEZjd3RkY3VTNJM3FraS9vZjVsNmp0MkdufDEuMCwGCgmSJomT8ixk
-AQEMHmlkZW50aXR5OmlkbXMucGVyc29uLjk3MzYzNjE4NjCCASIwDQYJKoZIhvcN
-AQEBBQADggEPADCCAQoCggEBANvW5mc0rx8yNtTm2akDhfWijXhQmPDUiPk5l2CO
-CSdabMfHbGMl+dRvE0Fpx+IV+fs6VY0KBn09rd4tcCoGxaOfBlvhEXcTtKgsx7Ro
-13E366DWAf90Z4aZaa2hWrq55vaJrPgcO5GMmlu0zLewjM9RJnOyglirqtk9o9Hi
-KaV98xRN8gCHhifMin5GUzUFDo1+MqsIycAKx1kSWnqqjAFS5hvtNW6y4zOIlwP9
-6aMrVJzlTOZAheQut5oMKXSqzZEe+d/sOjo5XozknCGmHhCB0ToNBJMxycYFXihZ
-CwgwyZZXk+9371b6wTuUDCrguWt4VTH4CHnkpjphkeVgBQ0CAwEAAaOCAWYwggFi
-MAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUFiBxLz9/c/PhervsSX9XlO2TsZ8w
-eAYIKwYBBQUHAQEEbDBqMDIGCCsGAQUFBzAChiZodHRwOi8vY2VydHMuYXBwbGUu
-Y29tL2NvcnBhdXRoY2ExLmRlcjA0BggrBgEFBQcwAYYoaHR0cDovL29jc3AuYXBw
-bGUuY29tL29jc3AwMy1jb3JwYXV0aDEwOTA8BgNVHREENTAzhjFhcHJuOmFwcGxl
-OmNlcnRtZ3I6OjpwZXJzb24tdjI6L3BpZC85NzM2MzYxODYvdXYvMBMGA1UdJQQM
-MAoGCCsGAQUFBwMCMDUGA1UdHwQuMCwwKqAooCaGJGh0dHA6Ly9jcmwuYXBwbGUu
-Y29tL2NvcnBhdXRoY2ExLmNybDAdBgNVHQ4EFgQUYGSEAiJf0k/AeHkT9QL6fw1j
-fAswDgYDVR0PAQH/BAQDAgWgMA0GCSqGSIb3DQEBCwUAA4IBAQAmRo+4EgAi1t7m
-3gq3ub8PYC1jQEP/w7aCTk030S+6U0O5xBy3YLSnOk5VnriHcQCP3KubAq5PdiwR
-iWOqR0oRCUH+RHkYwPgKF51+S2EcMqF/tuHr703v+64/ZuhmEIyeD79nszkKUinf
-TljufPgZSKtX/KTjnuN0FyX7akaIvAAEJegczx/2EvqKKG8u13DS1USc4p22wZyg
-9T1lseAo+WIwJFxMOAnek/EIicaFLiXhKnhD2gMPvUCCL7HSUXdQ4hRHWIjTTBmN
-RgP1O0+p80GElgVUHgGFk6UTIlPHfElPsaBgC22AOB7vGOdcknaEoQ40ZW6GS9GI
-w3mFUFUj
+	MIIIlTCCCDygAwIBAgIQZNV05YqnQ6CgPBtNhzfNvzAKBggqhkjOPQQDAjCBhDEr
+	MCkGCgmSJomT8ixkAQEMG2lkZW50aXR5OmlkbXMuZ3JvdXAuNTUwNDQ4NzEtMCsG
+	A1UEAwwkYXBwYXV0aG9yaXR5MDAzLmNuZ3lhMDUucGllLnNpbHUubmV0MSYwJAYD
+	VQQLDB1tYW5hZ2VtZW50OmlkbXMuZ3JvdXAuMTQwNTIwNjAeFw0yNDA2MjYyMDM3
+	NTVaFw0yNDA3MDYyMDQyNTVaMIH0MQswCQYDVQQGEwJVUzEnMCUGA1UECwwebWFu
+	YWdlbWVudDppZG1zLmdyb3VwLjEwODYyNzA0MRMwEQYDVQQLDApjbi1lYXN0LTFl
+	MS0wKwYDVQQDDCRlOWQyNTE4My03ZmJhLTQxMDQtOTE0ZS1iZWFmYWU2ZTcyMGIx
+	LDAqBgoJkiaJk/IsZAEBDBxpZGVudGl0eTppZG1zLmdyb3VwLjExMTMzMTg0MSEw
+	HwYDVQQLDBhvd25lcjppZG1zLmdyb3VwLjU1NDgzMTYxJzAlBgNVBAoMHm1hbmFn
+	ZW1lbnQ6aWRtcy5ncm91cC4xMDg2MjcwNDBZMBMGByqGSM49AgEGCCqGSM49AwEH
+	A0IABF9SXaxFQWFUceajrIpwTR58E5WEXE2EGI2oYM4O/OcIXY/ohW8Et3rZmyBt
+	SxTbpVxzw0mIaUkrnu4tECNLBIqjggYcMIIGGDCCA3UGA1UdEQSCA2wwggNogjZj
+	YWJvb2RsZS1nYXRla2VlcGVyLWdjYmQuY2Fib29kbGUtZ2F0ZWtlZXBlci1nY2Jk
+	Lmt1YmWCRyouY2Fib29kbGUtZ2F0ZWtlZXBlci1nY2JkLmNhYm9vZGxlLWdhdGVr
+	ZWVwZXItZ2NiZC5rdWJlLmNsb3VkLnNpbHUubmV0hntmbHVmZnk6Ly9jYWJvb2Rs
+	ZS1nYXRla2VlcGVyLWdjYmQuY2Fib29kbGUtZ2F0ZWtlZXBlci1nY2JkLmt1YmUu
+	MTQwNTIwNi9vd25lcj01NTQ4MzE2L21hbmFnZW1lbnQ9MTA4NjI3MDQvaWRlbnRp
+	dHk9MTExMzMxODSHBKwVE1SHECQC8UAQEAG7AAAAAAAAAA2HBKwVE1SHBKwQsuuH
+	ECQC8UAQKjsNAAAAAAAAABWHBKwWtgiCVGNhYm9vZGxlLWdhdGVrZWVwZXItZ2Ni
+	ZC5jYWJvb2RsZS1nYXRla2VlcGVyLWdjYmQua3ViZS5jbi1lYXN0LTFlLms4cy5j
+	bG91ZC5zaWx1Lm5ldII9Y2Fib29kbGUtZ2F0ZWtlZXBlci1zZXJ2aWNlLWdjYmQu
+	Y2Fib29kbGUtZ2F0ZWtlZXBlci1nY2JkLnN2Y4JgY2Fib29kbGUtZ2F0ZWtlZXBl
+	ci1zZXJ2aWNlLWdjYmQuY2Fib29kbGUtZ2F0ZWtlZXBlci1nY2JkLnN2Yy5rdWJl
+	LmNuLWVhc3QtMWUuazhzLmNsb3VkLnNpbHUubmV0gmIqLmNhYm9vZGxlLWdhdGVr
+	ZWVwZXItc2VydmljZS1nY2JkLmNhYm9vZGxlLWdhdGVrZWVwZXItZ2NiZC5zdmMu
+	a3ViZS5jbi1lYXN0LTFlLms4cy5jbG91ZC5zaWx1Lm5ldIJ5Y2Fib29kbGUtZ2F0
+	ZWtlZXBlci1nY2JkLmNhYm9vZGxlLWdhdGVrZWVwZXItc2VydmljZS1nY2JkLmNh
+	Ym9vZGxlLWdhdGVrZWVwZXItZ2NiZC5zdmMua3ViZS5jbi1lYXN0LTFlLms4cy5j
+	bG91ZC5zaWx1Lm5ldIJWY2Fib29kbGUtZ2F0ZWtlZXBlci1nY2JkLmNhYm9vZGxl
+	LWdhdGVrZWVwZXItc2VydmljZS1nY2JkLmNhYm9vZGxlLWdhdGVrZWVwZXItZ2Ni
+	ZC5zdmMwggGPBgkrBgEEAT+FZwEEggGABIIBfAo2Y2Fib29kbGUtZ2F0ZWtlZXBl
+	ci1nY2JkLmNhYm9vZGxlLWdhdGVrZWVwZXItZ2NiZC5rdWJlEgpjbi1lYXN0LTFl
+	GrMBCAAQABgAIAAoADAAOABAAEokCgpjbi1lYXN0LTFlEhRwbGIucGllLXBsYi5w
+	aWUtcHJvZBgASiQKCmNuLWVhc3QtMWUSFGtub2RlMTEwMy5jbmd5YTA1LmtrGAFi
+	GBIULmNhYm9vZGxlLXByb3h5Lmt1YmUYAGoWUElFIFZJUCAmIEJHUCBOZXR3b3Jr
+	c3gAgAEAigEdCgNTRFISFlBJRSBWSVAgJiBCR1AgTmV0d29ya3MiCAgAEAAYADAA
+	MjZjYWJvb2RsZS1nYXRla2VlcGVyLWdjYmQuY2Fib29kbGUtZ2F0ZWtlZXBlci1n
+	Y2JkLmt1YmUyPmNhYm9vZGxlLWdhdGVrZWVwZXItc2VydmljZS1nY2JkLmNhYm9v
+	ZGxlLWdhdGVrZWVwZXItZ2NiZC5rdWJlMC8GCSsGAQQBP4VnAwQiBCBlbnRpdGxl
+	bWVudHMucHJvZHVjdGlvbi5wbGF0Zm9ybTAmBgkrBgEEAT+FZwIEGQQXc2NoZWR1
+	bGVzaWduZXIua3ViZS5waWUwGQYJKwYBBAE/hWcIBAwECmNuLWVhc3QtMWUwGQYJ
+	KwYBBAE/hWcJBAwMCmNuLWVhc3QtMWUwDAYDVR0TAQH/BAIwADAOBgNVHQ8BAf8E
+	BAMCA6gwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMBMB0GA1UdDgQWBBT9
+	QItwibra8NPsSPOEMsH2q3F8bDAfBgNVHSMEGDAWgBT1K6k7nOehy/7bi1LBgkSa
+	0mKO4TAKBggqhkjOPQQDAgNHADBEAiAa3Kw/nrtHUT25PxyN/vs8LN3yiLH58LYK
+	B9GDH31aswIgWEMyygX+CfbsGOx/7zowCvbSjbkZ/6srH9Xp7qyXYZw=
 -----END CERTIFICATE-----
 `
 
@@ -300,6 +320,29 @@ var Asn1TagNames = map[int]string{
 	36:                "RelativeOID-IRI", // Relative OID in IRI form
 }
 
+func GetBitString(data []byte) ([]byte, error) {
+	if data[0] == 0 {
+		return data[1:], nil
+	}
+
+	shift := data[0]
+	if shift > 7 {
+		return nil, WrapTraceableErrorf(nil, "Incorrect shift in BitString: %d", shift)
+	}
+
+	var buf bytes.Buffer
+	var upperBits byte
+	mask := (byte(1) << shift) - 1
+
+	// shift string right and convert to hex
+	for i := 1; i < len(data); i++ {
+		 val := (data[i] >> shift) | upperBits
+		 upperBits = (data[i] & mask) << (8 - shift)
+		 buf.WriteByte(val)
+	}
+	return buf.Bytes(), nil
+}
+
 // GetASN1TagName returns the ASN.1 tag name from RawValue raw.
 // For ContextSpecific, Application, and Private classes, it will return <class_name>[<tag_value>].
 func GetAsn1TagName(raw asn1.RawValue) string {
@@ -325,10 +368,14 @@ func GetAsn1TagName(raw asn1.RawValue) string {
 // GetAsn1PrimitiveInfo returns ASN.1 primitive tag info from RawValue raw.
 // It parses OID, Boolean, time, and string to its best ability. Otherwise, it return <tag_name>(<length>).
 func GetAsn1PrimitiveInfo(raw asn1.RawValue) (string, error) {
+	l := len(raw.Bytes)
 	// We don't have to parse every primitive type. Just enough for the debug purpose.
+	if raw.Class != asn1.ClassUniversal {
+		return fmt.Sprintf("%s(%d)", GetAsn1TagName(raw), l), nil
+	}
 	switch raw.Tag {
 	case asn1.TagBoolean:
-		return fmt.Sprintf("%s{%s}", GetAsn1TagName(raw), IfElse(raw.Bytes[0] == 0xff, "true", "false")), nil
+		return fmt.Sprintf("%s{%s}(%d)", GetAsn1TagName(raw), IfElse(raw.Bytes[0] == 0xff, "true", "false"), l), nil
 	case asn1.TagOID:
 		var oid asn1.ObjectIdentifier
 		if rest, err := asn1.Unmarshal(raw.FullBytes, &oid); err != nil {
@@ -338,14 +385,14 @@ func GetAsn1PrimitiveInfo(raw asn1.RawValue) (string, error) {
 			return "", WrapTraceableErrorf(err,
 				"failed to get ASN.1 primitive info when parsing DER data to OID: extra DER followed %#x", rest)
 		}
-		return fmt.Sprintf("%s{%s}", GetAsn1TagName(raw), OIDName(oid)), nil
+		return fmt.Sprintf("%s{%s}(%d)", GetAsn1TagName(raw), OIDName(oid), l), nil
 	case asn1.TagUTF8String, asn1.TagNumericString, asn1.TagPrintableString, asn1.TagT61String, asn1.TagIA5String,
 		asn1.TagBMPString, 26 /*VisibleString*/ :
 		s, err := ParseASN1String(cryptobyte_asn1.Tag(raw.Tag), raw.Bytes)
 		if err != nil {
 			return "", WrapTraceableErrorf(err, "failed to get ASN.1 primitive info when parsing string")
 		}
-		return fmt.Sprintf("%s{%q}", GetAsn1TagName(raw), s), nil
+		return fmt.Sprintf("%s{%q}(%d)", GetAsn1TagName(raw), s, l), nil
 	case asn1.TagUTCTime, asn1.TagGeneralizedTime:
 		var t time.Time
 		if rest, err := asn1.Unmarshal(raw.FullBytes, &t); err != nil {
@@ -355,14 +402,23 @@ func GetAsn1PrimitiveInfo(raw asn1.RawValue) (string, error) {
 			return "", WrapTraceableErrorf(err,
 				"failed to get ASN.1 primitive info when parsing DER data to time: extra DER followed %#x", rest)
 		}
-		return fmt.Sprintf("%s{%s, %q}", GetAsn1TagName(raw), t, string(raw.Bytes)), nil
+		return fmt.Sprintf("%s{%s, %q}(%d)", GetAsn1TagName(raw), t, string(raw.Bytes), l), nil
 	case 14 /*Time*/, 31 /*Date*/, 32 /*TimeOfDay*/, 33 /*DateTime*/, 34, /*Duration*/
 		// These time types are ISO8601 time format strings.
 		35 /*OID-IRI*/, 36 /*RelativeOID-IRI*/, 7 /*ObjectDescriptor*/ :
 		// IRI types and ObjectDescriptor are strings.
-		return fmt.Sprintf("%s{%q}", GetAsn1TagName(raw), string(raw.Bytes)), nil
+		return fmt.Sprintf("%s{%q}(%d)", GetAsn1TagName(raw), string(raw.Bytes), l), nil
 	}
-	return fmt.Sprintf("%s(%d)", GetAsn1TagName(raw), len(raw.Bytes)), nil
+	return fmt.Sprintf("%s(%d)", GetAsn1TagName(raw), l), nil
+}
+
+func isPrintable(data []byte) bool {
+	for _, b := range data {
+		if b < 32 || b > 126 {
+			return false
+		}
+	}
+	return true
 }
 
 // derDumperInfo is the infomation passed through DERDumper calls
@@ -411,15 +467,53 @@ func DERDumper(data []byte, nIndent uint, info *derDumperInfo) ([]string, error)
 			return msgs, err
 		}
 	} else { // ASN.1 primitive
-		pInfo, err := GetAsn1PrimitiveInfo(raw)
-		if err != nil {
-			return msgs, WrapTraceableErrorf(err, "failed to dump DER data at level %d offset %d", info.level, info.idx)
+		isPrimitive := true
+		if raw.Tag == asn1.TagOctetString { // try parsing substructure
+			nMsgs, err := DERDumper(raw.Bytes, 2, &derDumperInfo{
+				level: info.level + 1, idx: info.idx + len(header), hdrFmt: info.hdrFmt})
+			if err == nil {
+				line = append(line, fmt.Sprintf(": %s(%d)", GetAsn1TagName(raw), len(raw.Bytes)))
+				msgs = append(msgs, strings.Join(line, ""))
+				msgs = append(msgs, nMsgs...)
+				isPrimitive = false
+			}
+		} else if raw.Tag == asn1.TagBitString { 
+			buf, err := GetBitString(raw.Bytes)
+			if err != nil {
+				return msgs, WrapTraceableErrorf(err, 
+					"failed to get ASN.1 primitive info when parsing DER data (%#x) to BitString at level %d offset %d", raw.FullBytes, info.level, info.idx)
+			}
+			// try parsing substructure in BitString value
+			nMsgs, err := DERDumper(buf, 2, &derDumperInfo{
+				level: info.level + 1, idx: info.idx + len(header) + 1, hdrFmt: info.hdrFmt})
+			if err == nil {
+				line = append(line, fmt.Sprintf(": %s(%d, pad:%db)", GetAsn1TagName(raw), len(raw.Bytes), raw.Bytes[0]))
+				msgs = append(msgs, strings.Join(line, ""))
+				msgs = append(msgs, nMsgs...)
+				isPrimitive = false
+			} else {
+				line = append(line, fmt.Sprintf(": %s{%s}(%d, pad:%db)", GetAsn1TagName(raw), hex.EncodeToString(buf), len(raw.Bytes), raw.Bytes[0]))
+				if raw.Bytes[0] > 0 {
+					line = append(line, fmt.Sprintf(" %02x", raw.Bytes))
+				}
+				msgs = append(msgs, strings.Join(line, ""))
+				isPrimitive = false
+			}
 		}
-		line = append(line, fmt.Sprintf(" %s", pInfo))
-		if len(raw.Bytes) > 0 {
-			line = append(line, fmt.Sprintf(" %02x", raw.Bytes))
+		if isPrimitive {
+			pInfo, err := GetAsn1PrimitiveInfo(raw)
+			if err != nil {
+				return msgs, WrapTraceableErrorf(err, "failed to dump DER data at level %d offset %d", info.level, info.idx)
+			}
+			line = append(line, fmt.Sprintf(" %s", pInfo))
+			if len(raw.Bytes) > 0 {
+				if (raw.Class != asn1.ClassUniversal || raw.Tag == asn1.TagOctetString) && isPrintable(raw.Bytes) {
+					line = append(line, fmt.Sprintf(" (%q)", string(raw.Bytes)))
+				}
+				line = append(line, fmt.Sprintf(" %02x", raw.Bytes))
+			}
+			msgs = append(msgs, strings.Join(line, ""))
 		}
-		msgs = append(msgs, strings.Join(line, ""))
 	}
 	if len(rest) != 0 { // the sibling DER
 		nMsgs, err := DERDumper(rest, 2, &derDumperInfo{
